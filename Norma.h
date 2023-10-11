@@ -7,9 +7,17 @@
 #include <cmath>
 #include "QuadMatrix.h"
 
-//Кубическая норма для вектора и матрицы
+// ’ЁЇл дг­ЄжЁ© ­®а¬ ¤«п ўҐЄв®а®ў Ё ¬ ваЁж б®®вўҐвбвўҐ­­®
+
+template<typename T>
+using vectorNorm = T (*)(const vector<T>&);
+
+template<typename T>
+using matrixNorm = T (*)(const QuadMatrix<T>&);
+
+//Кубическа  норма дл  вектора и матрицы
 template <class T>
-T norm_inf(vector<T> x) {
+T norm_inf(const vector<T>& x) {
 	size_t n = x.size();
 	T xMax = 0;
 
@@ -21,7 +29,7 @@ T norm_inf(vector<T> x) {
 	return xMax;
 }
 template <class T>
-T norm_inf(QuadMatrix<T> A) {
+T norm_inf(const QuadMatrix<T>& A) {
 	size_t n = A.order();
 	T  aSum, aMax = 0;
 
@@ -37,9 +45,9 @@ T norm_inf(QuadMatrix<T> A) {
 	return aMax;
 }
 
-//Октаэдральная норма для вектора и матрицы
+//Октаэдральна  норма дл  вектора и матрицы
 template<class T>
-T norm_1(vector<T> x) {
+T norm_1(const vector<T>& x) {
 	size_t n = x.size();
 	T xSum = 0;
 	for (int i = 0; i < n; ++i) {
@@ -48,7 +56,7 @@ T norm_1(vector<T> x) {
 	return xSum;
 }
 template<class T>
-T norm_1(QuadMatrix<T> A) {
+T norm_1(const QuadMatrix<T>& A) {
 	size_t n = A.order();
 	T aSum, aMax = 0;
 	for (int j = 0; j < n; ++j) {
@@ -63,7 +71,7 @@ T norm_1(QuadMatrix<T> A) {
 	return aMax;
 }
 
-//Шаровая норма для вектора и матрицы(норма Фробениуса)
+//Шарова  норма дл  вектора и матрицы(норма Фробениуса)
 //template<class T>
 //T norm_2(vector<T> x) {
 //	size_t n = x.size();

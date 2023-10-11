@@ -18,12 +18,41 @@ public:
 		}
 	}
 
-	friend vector<T> operator* (const QuadMatrix<T>& A, vector<T> b);
+    QuadMatrix(vector<vector<T>> data) : Matrix<T>(data[0].size(), data[0].size()) {
+        if (data[0].size() != data.size()) {
+            cerr << "QuadMatrix(vector<vector<T>> data): не квадратная матрица";
+        }
 
-	size_t order();
-	void print();
-	QuadMatrix<T> inv();
+        this->elems = vector<vector<T>>(data[0].size());
+
+        for (int i = 0; i < this->elems.size(); ++i) {
+            this->elems[i] = data[i];
+        }
+    }
+
+    template<typename L>
+    friend vector<L> operator* (const QuadMatrix<L>& A, vector<L> b);
+    template<typename L>
+    friend QuadMatrix<L> operator* (L coef, const QuadMatrix<L>& A);
+
+
+    size_t order() const;
+    void print() const;
+    QuadMatrix<T> inv() const;
 };
+
+template<typename L>
+QuadMatrix<L> operator* (L coef, const QuadMatrix<L>& A) {
+    QuadMatrix<L> res(A.order());
+
+    for (int i = 0; i < A.order(); ++i) {
+        for (int j = 0; j < A.order(); ++j) {
+            res(i, j) = coef * A(i, j);
+        }
+    }
+
+    return res;
+}
 
 template<class T>
 vector<T> mul(QuadMatrix<T> A, vector<T> b) {
@@ -38,12 +67,12 @@ vector<T> mul(QuadMatrix<T> A, vector<T> b) {
 }
 
 template<class T>
-size_t QuadMatrix<T>::order() {
+size_t QuadMatrix<T>::order() const {
 	return this->elems.size();
 }
 
 template<class T>
-void QuadMatrix<T>::print() {
+void QuadMatrix<T>::print() const {
 	QuadMatrix A(*this);
 	size_t n = A.order();
 	for (int i = 0; i < n; ++i) {
@@ -52,11 +81,12 @@ void QuadMatrix<T>::print() {
 			std::cout << A(i, j) << ' ';
 		}
 	}
+    cout << endl;
 	return;
 }
 
 template<class T>
-QuadMatrix<T> QuadMatrix<T>::inv() {
+QuadMatrix<T> QuadMatrix<T>::inv() const {
 	size_t size = (*this).order();
 	QuadMatrix A(*this), E(size);
 	for (size_t i = 0; i < size; ++i) {
