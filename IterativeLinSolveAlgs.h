@@ -5,10 +5,12 @@
 #include <vector>
 #include <utility>
 #include <cmath>
+#include <numeric>
 #include "QuadMatrix.h"
 #include "Matrix.h"
 #include "Norma.h"
 #include "LinSolveAlgs.h"
+#include "Diag3Matrix.h"
 
 using namespace std;
 
@@ -19,6 +21,7 @@ struct iterativeMethodResult {
     int iterationCount;
     vector<T> sol;
     QuadMatrix<T> C;
+    vector<vector<T>> xs;
     IterMethodResCodes resCode;
 };
 
@@ -38,26 +41,29 @@ iterativeMethodResult<T> stationaryIterativeMethod(const QuadMatrix<T>& A, const
     int n = C.order();
 
     if (opts.mNorm(C) >= 1) {
-        cerr << "Ќ®а¬  ¬ ваЁжл ­Ґ ¬Ґ­миҐ 1. ЊҐв®¤ ¬®¦Ґв ­Ґ бе®¤Ёвбп!" << endl << endl;
-        return {0, {}, {{}}, IMRC_NORM_GE_1};
+        cerr << "Норма матрицы C должна быть меньше 1!" << endl << endl;
+        return {0, {}, C, {}, IMRC_NORM_GE_1};
     }
 
     int itCount = 0;
 
     vector<T> prevX(n, 0);
     vector<T> curX = prevX;
+    vector<vector<T>> xs = {curX};
 
     for (itCount = 1; itCount <= 1000 && opts.vNorm(diff(mul(A, curX), b)) > opts.eps; ++itCount) {
         prevX = curX;
         curX = sum(mul(C, prevX), y);
+
+        xs.push_back(curX);
     }
 
     if (itCount >= 1000) {
-        cerr << "Љ®«ЁзҐвбў® ЁвҐа жЁ© ЇаҐўлбЁ«® ¤®ЇгбвЁ¬л© Ї®а®Ј!" << endl << endl;
-        return {itCount, curX, C, IMRC_ITER_OVERFLOW};
+        cerr << "Количество итераций привысело заданный порог" << endl << endl;
+        return {itCount, curX, C, xs, IMRC_ITER_OVERFLOW};
     }
 
-    return {itCount, curX, C, IMRC_OK};
+    return {itCount, curX, C, xs, IMRC_OK};
 }
 
 template<typename T>
@@ -91,7 +97,7 @@ T findBestIterParam(const QuadMatrix<T>& A, const vector<T>& b, IterLinSolveOpti
     }
 
     if (bestTau == 0) {
-        cerr << "‹гзиЁ© ЁвҐа жЁ®­­л© Ї а ¬Ґва ­Ґ Ўл« ­ ©¤Ґ­!" << endl;
+        cerr << "Ни для одног из рассмотренных итерационных параметров метод не сходится!" << endl;
     }
 
     return bestTau;
@@ -106,8 +112,8 @@ iterativeMethodResult<T> jacobiMethod(const QuadMatrix<T>& A, const vector<T>& b
 
     for (int i = 0; i < n; ++i) {
         if (A(i, i) < opts.eps) {
-            cerr << "„Ё Ј®­ «м­лҐ н«Ґ¬Ґ­вл ¬ ваЁжл ¤®«¦­л Ўлвм ­Ґ­г«Ґўл¬Ё!" << endl;
-            return {0, {}, {{}}, IMRC_BAD_MATRIX}; // ¤Ё Ј. н«Ґ¬Ґ­вл ¤®«¦­л Ўлвм Ї® ¬®¤г«о > 0.
+            cerr << "Матрица система должна содержать ненулевые диагональные элементы!" << endl;
+            return {0, {}, {{}}, {}, IMRC_BAD_MATRIX}; // ????. ???????? ?????? ???? ?? ?????? > 0.
         }
 
         y[i] = b[i] / A(i, i);
@@ -125,3 +131,143 @@ iterativeMethodResult<T> jacobiMethod(const QuadMatrix<T>& A, const vector<T>& b
     return stationaryIterativeMethod(A, b, C, y, opts);
 }
 
+template<typename T>
+iterativeMethodResult<T> relaxationMethod(const QuadMatrix<T>& A, const vector<T>& b, T w, IterLinSolveOptions<T> opts, bool useStationaryMethod = false) {
+    int n = A.order();
+
+    QuadMatrix<T> C(n);
+    QuadMatrix<T> C1(n), C2(n);
+
+    for (int i = 0; i < n; ++i) {
+        if (A(i, i) < opts.eps) {
+            cerr << "Матрица система должна содержать ненулевые диагональные элементы!" << endl;
+            return {0, {}, {{}}, {}, IMRC_BAD_MATRIX}; // ????. ???????? ?????? ???? ?? ?????? > 0.
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        C1(i, i) = 1;
+        for (int j = 0; j < i; ++j) {
+            C1(i, j) = w * A(i, j) / A(i, i);
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        C2(i, i) = 1 - w;
+        for (int j = i + 1; j < n; ++j) {
+            C2(i, j) = -w * A(i, j) / A(i, i);
+        }
+    }
+
+    C = C1.inv() * C2;
+
+    if (opts.mNorm(C) >= 1) {
+        cerr << "Норма матрицы C должна быть меньше 1!" << endl << endl;
+        return {0, {}, C, {}, IMRC_NORM_GE_1};
+    }
+
+    if (useStationaryMethod) {
+        vector<T> y(n);
+        for (int i = 0; i < n; ++i) {
+            y[i] = w * b[i] / A(i, i);
+        }
+
+        y = mul(C1.inv(), y);
+
+        return stationaryIterativeMethod(A, b, C, y, opts);
+    }
+
+    int itCount = 0;
+
+    vector<T> prevX(n, 0);
+    vector<T> curX = prevX;
+    vector<vector<T>> xs = {curX};
+
+    for (itCount = 1; itCount <= 1000 && opts.vNorm(diff(mul(A, curX), b)) > opts.eps; ++itCount) {
+        prevX = curX;
+
+        for (int i = 0; i < n; ++i) {
+            T prevXsum = 0;
+            T curXsum = 0;
+
+            for (int j = 0; j < i; ++j) {
+                curXsum += curX[j] * A(i, j) / A(i, i);
+            }
+
+            for (int j = i + 1; j < n; ++j) {
+                prevXsum += prevX[j] * A(i, j) / A(i, i);
+            }
+
+            curX[i] = -w * curXsum + (1 - w) * prevX[i] - w * prevXsum + w * b[i] / A(i, i);
+        }
+
+        xs.push_back(curX);
+    }
+
+    if (itCount >= 1000) {
+        cerr << "Количество итераций привысело заданный порог" << endl << endl;
+        return {itCount, curX, C, xs, IMRC_ITER_OVERFLOW};
+    }
+
+    return {itCount, curX, C, xs, IMRC_OK};
+}
+
+template<typename T>
+iterativeMethodResult<T> relaxation3diagMethod(const vector<T>& a,
+                                               const vector<T>& b,
+                                               const vector<T>& c,
+                                               const vector<T>& d,
+                                               T w,
+                                               IterLinSolveOptions<T> opts)
+{
+    int n = a.size();
+
+    for (int i = 0; i < n; ++i) {
+        if (b[i] < opts.eps) {
+            cerr << "Матрица система должна содержать ненулевые диагональные элементы!" << endl;
+            return {0, {}, {{}}, {}, IMRC_BAD_MATRIX}; // ????. ???????? ?????? ???? ?? ?????? > 0.
+        }
+    }
+
+    int itCount = 0;
+
+    vector<T> prevX(n, 0);
+    vector<T> curX = prevX;
+    vector<vector<T>> xs = {curX};
+
+
+
+    for (itCount = 1; itCount <= 1000 && opts.vNorm(diff(diag3MatrixMul(a, b, c, curX), b)) > opts.eps; ++itCount) {
+        prevX = curX;
+
+        for (int i = 0; i < n; ++i) {
+            T prevXsum = i == n - 1 ? 0 : prevX[i + 1] * c[i] / b[i];
+            T curXsum = i == 0 ? 0 : curX[i - 1] * a[i] / b[i];
+
+            curX[i] = -w * curXsum + (1 - w) * prevX[i] - w * prevXsum + w * d[i] / b[i];
+        }
+
+        xs.push_back(curX);
+    }
+
+    if (itCount >= 1000) {
+        cerr << "Количество итераций привысело заданный порог" << endl << endl;
+        return {itCount, curX, {{}}, xs, IMRC_ITER_OVERFLOW};
+    }
+
+    return {itCount, curX, {{}}, xs, IMRC_OK};
+}
+
+template<typename T>
+iterativeMethodResult<T> seidelMethod(const QuadMatrix<T>& A, const vector<T>& b, IterLinSolveOptions<T> opts, bool useStationaryMethod = false) {
+    return relaxationMethod<T>(A, b, 1, opts, useStationaryMethod);
+}
+
+template<typename T>
+iterativeMethodResult<T> seidel3diagMethod(const vector<T>& a,
+                                          const vector<T>& b,
+                                          const vector<T>& c,
+                                          const vector<T>& d,
+                                          IterLinSolveOptions<T> opts) {
+    return relaxation3diagMethod<T>(a, b, c, d, 1, opts);
+}

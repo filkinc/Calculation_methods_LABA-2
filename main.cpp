@@ -3,12 +3,34 @@
 #include <vector>
 #include <utility>
 #include <cmath>
+#include <utility>
 #include "QuadMatrix.h"
 #include "Matrix.h"
 #include "Norma.h"
 #include "IterativeLinSolveAlgs.h"
 
 using namespace std;
+
+#define zebelTrajectoryFileName "zebelTrajectory.txt"
+#define variantNumber 4
+
+template<typename T>
+void getVariantDiag3Matrix(vector<T>& a, vector<T>& b, vector<T>& c, vector<T>& d) {
+    int n = 200 + variantNumber;
+    a = vector<T>(n, 1);
+    b = vector<T>(n, 4);
+    c = vector<T>(n, 1);
+    d = vector<T>(n);
+    a[0] = 0;
+    c[n - 1] = 0;
+
+    d[0] = 6;
+    d[n - 1] = 9 - 3 * (n % 2);
+
+    for (int i = 1; i < n - 1; i++) {
+        d[i] = 10 - 2 * ((i + 1) % 2);
+    }
+}
 
 int main() {
     IterLinSolveOptions<double> opts;
@@ -44,9 +66,48 @@ int main() {
     }
     cout << endl << endl;
 
-    auto bestTau = findBestIterParam<double>(A, b, opts);
+    // auto bestTau = findBestIterParam<double>(A, b, opts);
 
-    cout << bestTau << endl;
+    // cout << bestTau << endl << endl;
+
+    auto resZ = seidelMethod(A, b, opts);
+
+    resZ.C.print();
+
+    for (auto& xi : resZ.sol) {
+        cout << xi << ' ';
+    }
+    cout << endl << endl;
+
+    ofstream zebelTrajectoryOutput((string)"C:\\Users\\Alex\\Documents\\Qt\\BMSTU\\CalcMethods Semester 5\\CalcMethods_Lab_2\\" + zebelTrajectoryFileName);
+
+    for (auto& x : resZ.xs) {
+        for (auto& xi : x) {
+            zebelTrajectoryOutput << xi << " ";
+        }
+        zebelTrajectoryOutput << endl;
+    }
+
+    zebelTrajectoryOutput.close();
+
+    auto resR = relaxationMethod(A, b, 1.5, opts);
+
+    resR.C.print();
+
+    for (auto& xi : resR.sol) {
+        cout << xi << ' ';
+    }
+    cout << endl << endl;
+
+    vector<double> a1, b1, c1, d1;
+    getVariantDiag3Matrix<double>(a1, b1, c1, d1);
+
+    auto res3diagZ = seidel3diagMethod(a1, b1, c1, d1, opts);
+
+    for (auto& xi : res3diagZ.sol) {
+        cout << xi << ' ';
+    }
+    cout << endl << endl;
 
     return 0;
 }

@@ -20,7 +20,7 @@ public:
 
     QuadMatrix(vector<vector<T>> data) : Matrix<T>(data[0].size(), data[0].size()) {
         if (data[0].size() != data.size()) {
-            cerr << "QuadMatrix(vector<vector<T>> data): не квадратная матрица";
+            cerr << "QuadMatrix(vector<vector<T>> data): не кв др тн я м триц ";
         }
 
         this->elems = vector<vector<T>>(data[0].size());
@@ -34,6 +34,8 @@ public:
     friend vector<L> operator* (const QuadMatrix<L>& A, vector<L> b);
     template<typename L>
     friend QuadMatrix<L> operator* (L coef, const QuadMatrix<L>& A);
+    template<typename L>
+    friend QuadMatrix<L> operator* (const QuadMatrix<L>& A, const QuadMatrix<L>& B);
 
 
     size_t order() const;
@@ -48,6 +50,24 @@ QuadMatrix<L> operator* (L coef, const QuadMatrix<L>& A) {
     for (int i = 0; i < A.order(); ++i) {
         for (int j = 0; j < A.order(); ++j) {
             res(i, j) = coef * A(i, j);
+        }
+    }
+
+    return res;
+}
+
+template<typename L>
+QuadMatrix<L> operator* (const QuadMatrix<L>& A, const QuadMatrix<L>& B) {
+    size_t n = A.order();
+
+    QuadMatrix<L> res(n);
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            res(i, j) = 0;
+            for (int k = 0; k < n; ++k) {
+                res(i, j) += A(i, k) * B(k, j);
+            }
         }
     }
 
